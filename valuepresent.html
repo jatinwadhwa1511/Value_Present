@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ValuePresent — Real Estate IRR Calculator</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root {
+  --bg:#0c0d0c;--bg2:#141514;--bg3:#1b1c1b;--bg4:#222322;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+  --text:#e6e4df;--text2:#888680;--text3:#4a4947;
+  --accent:#b8f03c;--acc-bg:rgba(184,240,60,0.08);
+  --pos:#4ade80;--neg:#f87171;--warn:#fbbf24;
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;--r:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;min-height:100vh;}
+header{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:50px;position:sticky;top:0;z-index:50;}
+.logo{font-size:15px;font-weight:600;letter-spacing:-0.02em;display:flex;align-items:center;gap:7px;}
+.logo-mark{width:20px;height:20px;background:var(--accent);border-radius:5px;display:flex;align-items:center;justify-content:center;}
+.logo-mark svg{width:11px;height:11px;}
+.logo em{font-style:normal;color:var(--accent);}
+.header-right{display:flex;align-items:center;gap:7px;}
+select{font-family:var(--sans);font-size:12px;color:var(--text2);background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:5px 24px 5px 9px;cursor:pointer;outline:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23888680' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center;}
+select:focus{border-color:var(--accent);}
+select option{background:#1b1c1b;}
+.denom-toggle{display:flex;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;overflow:hidden;}
+.denom-toggle button{font-family:var(--sans);font-size:11px;font-weight:500;padding:5px 9px;border:none;background:transparent;color:var(--text3);cursor:pointer;transition:background .15s,color .15s;border-right:1px solid var(--border);}
+.denom-toggle button:last-child{border-right:none;}
+.denom-toggle button.active{background:var(--accent);color:#0c0d0c;}
+.export-btn{font-family:var(--sans);font-size:12px;font-weight:500;color:#0c0d0c;background:var(--accent);border:none;border-radius:6px;padding:6px 14px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:opacity .15s;}
+.export-btn:hover{opacity:.85;}
+.export-btn svg{width:13px;height:13px;}
+.page{max-width:980px;margin:0 auto;padding:1.75rem 1.5rem 4rem;}
+.page-head{margin-bottom:1.5rem;}
+.page-head h1{font-size:17px;font-weight:600;margin-bottom:3px;}
+.page-head p{font-size:12px;color:var(--text2);}
+.input-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem;}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
+.card-header{padding:10px 16px;border-bottom:1px solid var(--border);font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);display:flex;align-items:center;gap:7px;}
+.card-dot{width:5px;height:5px;background:var(--accent);border-radius:50%;}
+.card-dot.blue{background:#60a5fa;}
+.row-divider{padding:6px 16px 3px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);background:var(--bg);border-bottom:1px solid var(--border);}
+.input-row{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;border-bottom:1px solid var(--border);gap:10px;}
+.input-row:last-child{border-bottom:none;}
+.row-label{flex:1;}
+.rl-name{font-size:13px;color:var(--text);}
+.rl-sub{font-size:10px;color:var(--text3);margin-top:1px;}
+.input-box{display:flex;align-items:center;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:0 8px;width:120px;flex-shrink:0;transition:border-color .15s;}
+.input-box:focus-within{border-color:var(--accent);}
+.input-box.debt-box:focus-within{border-color:#60a5fa;}
+.unit{font-size:11px;color:var(--text3);font-family:var(--mono);white-space:nowrap;}
+.input-box input{background:transparent;border:none;outline:none;font-family:var(--mono);font-size:13px;font-weight:500;color:var(--text);width:100%;padding:7px 0;text-align:right;}
+input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
+.row-derived .input-box{background:var(--acc-bg);border-color:rgba(184,240,60,.18);}
+.row-derived .input-box input{color:var(--accent);font-weight:600;}
+.row-debt-derived .input-box{background:rgba(96,165,250,.08);border-color:rgba(96,165,250,.2);}
+.row-debt-derived .input-box input{color:#60a5fa;font-weight:600;}
+.warn-badge{display:none;font-size:11px;color:var(--warn);background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.25);border-radius:5px;padding:4px 10px;margin:6px 16px 8px;line-height:1.4;}
+.warn-badge.show{display:block;}
+.slider-row{padding:9px 16px 11px;border-bottom:1px solid var(--border);}
+.slider-row:last-child{border-bottom:none;}
+.slider-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px;}
+.slider-name{font-size:13px;color:var(--text);}
+.slider-sub{font-size:10px;color:var(--text3);}
+.slider-val{font-family:var(--mono);font-size:13px;font-weight:500;color:var(--accent);min-width:52px;text-align:right;}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:3px;background:var(--bg4);border-radius:2px;outline:none;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);border:2px solid var(--bg2);cursor:pointer;transition:transform .12s;}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.25);}
+.results-row{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem;}
+.irr-compare{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);}
+.irr-cell{background:var(--bg2);padding:18px 16px;text-align:center;}
+.irr-tag{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;}
+.irr-num{font-family:var(--mono);font-size:36px;font-weight:500;line-height:1;color:var(--text);}
+.irr-num.pos{color:var(--pos);}
+.irr-num.neg{color:var(--neg);}
+.irr-hint{font-size:10px;color:var(--text3);margin-top:4px;}
+.metrics-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);}
+.metric{background:var(--bg2);padding:11px 14px;}
+.m-label{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:4px;}
+.m-val{font-family:var(--mono);font-size:14px;font-weight:500;color:var(--text);}
+.m-val.pos{color:var(--pos);}
+.m-val.acc{color:var(--accent);}
+.m-val.blue{color:#60a5fa;}
+.formula-box{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:13px 16px;font-size:12px;color:var(--text2);line-height:1.9;margin-bottom:1.25rem;}
+.fb-title{font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);margin-bottom:7px;}
+code{font-family:var(--mono);font-size:11px;background:var(--bg2);border:1px solid var(--border2);border-radius:4px;padding:1px 5px;color:var(--accent);}
+code.blue{color:#60a5fa;}
+.cf-card{margin-bottom:1.25rem;}
+.cf-scroll{overflow-x:auto;}
+.cf-table{width:100%;border-collapse:collapse;font-size:12px;}
+.cf-table thead th{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);font-weight:500;padding:8px 12px;text-align:right;border-bottom:1px solid var(--border);background:var(--bg);white-space:nowrap;}
+.cf-table thead th:first-child{text-align:left;}
+.cf-table thead th.blue{color:#60a5fa;}
+.cf-table tbody td{padding:8px 12px;text-align:right;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:11px;color:var(--text2);white-space:nowrap;}
+.cf-table tbody td:first-child{text-align:left;font-family:var(--sans);font-size:12px;color:var(--text);font-weight:500;}
+.cf-table tbody tr:last-child td{border-bottom:none;}
+.cf-table tbody tr.exit-row td{color:var(--pos);}
+.cf-table tbody tr.acq-row td{color:var(--neg);}
+.cf-table tbody tr.acq-row td:first-child{color:var(--neg);font-family:var(--sans);}
+.footnote{font-size:11px;color:var(--text3);padding:9px 14px;border-top:1px solid var(--border);line-height:1.6;}
+@media(max-width:660px){.input-grid,.results-row{grid-template-columns:1fr;}.metrics-grid{grid-template-columns:1fr 1fr;}header{padding:0 1rem;}.page{padding:1.25rem 1rem 3rem;}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">
+    <div class="logo-mark"><svg viewBox="0 0 11 11" fill="none"><path d="M1 8.5L4 4.5L6.5 7L8 5.5L10 8.5H1Z" fill="#0c0d0c"/></svg></div>
+    Value<em>Present</em>
+  </div>
+  <div class="header-right">
+    <select id="currency" onchange="recalc()">
+      <option value="₹" data-symbol="₹">INR (₹)</option>
+      <option value="$" data-symbol="$">USD ($)</option>
+      <option value="د.إ" data-symbol="د.إ">AED (د.إ)</option>
+      <option value="£" data-symbol="£">GBP (£)</option>
+      <option value="€" data-symbol="€">EUR (€)</option>
+    </select>
+    <div class="denom-toggle">
+      <button id="btn-abs" onclick="setDenom('abs')" class="active">Abs</button>
+      <button id="btn-L" onclick="setDenom('L')">Lakhs</button>
+      <button id="btn-Cr" onclick="setDenom('Cr')">Crores</button>
+    </div>
+    <button class="export-btn" onclick="exportExcel()">
+      <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1v8M4 6l3 3 3-3M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2"/></svg>
+      Export Excel
+    </button>
+  </div>
+</header>
+
+<div class="page">
+  <div class="page-head">
+    <h1>Real Estate IRR Calculator</h1>
+    <p>Unlevered &amp; levered returns · adjust inputs and sliders for instant results</p>
+  </div>
+  <div class="input-grid">
+    <div class="card">
+      <div class="card-header"><div class="card-dot"></div>Property &amp; Income</div>
+      <div class="row-divider">Property</div>
+      <div class="input-row">
+        <div class="row-label"><div class="rl-name">Area</div><div class="rl-sub">Leasable area</div></div>
+        <div class="input-box"><input type="number" id="area" value="100" min="0" step="10" oninput="recalc()"><span class="unit">sqm</span></div>
+      </div>
+      <div class="row-divider">Lease</div>
+      <div class="input-row">
+        <div class="row-label"><div class="rl-name">Lease Rate</div><div class="rl-sub">Per sqm · per month</div></div>
+        <div class="input-box"><span class="unit" id="sym-lease">₹</span><input type="number" id="leaseRate" value="100" min="0" step="5" oninput="recalc()"></div>
+      </div>
+      <div class="slider-row">
+        <div class="slider-top"><div><div class="slider-name">Lease Growth</div><div class="slider-sub">Annual escalation</div></div><div class="slider-val" id="lgVal">5.0%</div></div>
+        <input type="range" id="leaseGrowth" min="0" max="20" step="0.5" value="5" oninput="document.getElementById('lgVal').textContent=parseFloat(this.value).toFixed(1)+'%';recalc()">
+      </div>
+      <div class="row-divider">Operating Expenses</div>
+      <div class="input-row">
+        <div class="row-label"><div class="rl-name">Opex</div><div class="rl-sub">Per sqm · per month</div></div>
+        <div class="input-box"><span class="unit" id="sym-opex">₹</span><input type="number" id="opex" value="50" min="0" step="5" oninput="recalc()"></div>
+      </div>
+      <div class="slider-row">
+        <div class="slider-top"><div><div class="slider-name">Opex Growth</div><div class="slider-sub">Annual escalation</div></div><div class="slider-val" id="ogVal">5.0%</div></div>
+        <input type="range" id="opexGrowth" min="0" max="20" step="0.5" value="5" oninput="document.getElementById('ogVal').textContent=parseFloat(this.value).toFixed(1)+'%';recalc()">
+      </div>
+      <div class="row-divider">NOI — Derived</div>
+      <div class="input-row row-derived">
+        <div class="row-label"><div class="rl-name">NOI · Year 1</div><div class="rl-sub">(Lease − Opex) × Area × 12</div></div>
+        <div class="input-box"><span class="unit" id="sym-noi">₹</span><input type="text" id="noiDisplay" readonly tabindex="-1"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-dot blue"></div>Hold, Cap Rates &amp; Debt</div>
+      <div class="row-divider">Hold Period</div>
+      <div class="slider-row">
+        <div class="slider-top"><div><div class="slider-name">Hold Period</div><div class="slider-sub">Number of years</div></div><div class="slider-val" id="holdVal">10 yrs</div></div>
+        <input type="range" id="hold" min="1" max="30" step="1" value="10" oninput="document.getElementById('holdVal').textContent=this.value+' yrs';recalc()">
+      </div>
+      <div class="row-divider">Cap Rates</div>
+      <div class="input-row">
+        <div class="row-label"><div class="rl-name">Entry Cap Rate</div><div class="rl-sub">Purchase yield</div></div>
+        <div class="input-box"><input type="number" id="entryCap" value="5" min="0.1" max="30" step="0.1" oninput="recalc()"><span class="unit">%</span></div>
+      </div>
+      <div class="input-row">
+        <div class="row-label"><div class="rl-name">Exit Cap Rate</div><div class="rl-sub">Sale yield</div></div>
+        <div class="input-box"><input type="number" id="exitCap" value="5" min="0.1" max="30" step="0.1" oninput="recalc()"><span class="unit">%</span></div>
+      </div>
+      <div class="row-divider">Debt / Financing</div>
+      <div class="input-row">
+        <div class="row-label"><div class="rl-name">LTV</div><div class="rl-sub">Loan-to-value ratio</div></div>
+        <div class="input-box debt-box"><input type="number" id="ltv" value="60" min="0" max="95" step="5" oninput="recalc()"><span class="unit">%</span></div>
+      </div>
+      <div class="input-row row-debt-derived">
+        <div class="row-label"><div class="rl-name">Loan Amount</div><div class="rl-sub">Purchase Price × LTV</div></div>
+        <div class="input-box"><span class="unit" id="sym-loan">₹</span><input type="text" id="loanDisplay" readonly tabindex="-1"></div>
+      </div>
+      <div class="input-row">
+        <div class="row-label"><div class="rl-name">Interest Rate</div><div class="rl-sub">Annual cost of debt</div></div>
+        <div class="input-box debt-box"><input type="number" id="interestRate" value="9" min="0" max="30" step="0.25" oninput="recalc()"><span class="unit">%</span></div>
+      </div>
+      <div class="input-row">
+        <div class="row-label"><div class="rl-name">Repayment Period</div><div class="rl-sub">Cannot exceed hold period</div></div>
+        <div class="input-box debt-box"><input type="number" id="repayYears" value="10" min="1" max="30" step="1" oninput="recalc()"><span class="unit">yrs</span></div>
+      </div>
+      <div class="warn-badge" id="warnBadge">⚠ Repayment period exceeds hold period — capped to hold period for calculation.</div>
+      <div class="input-row row-debt-derived">
+        <div class="row-label"><div class="rl-name">Annual Principal</div><div class="rl-sub">Loan ÷ Repayment Period</div></div>
+        <div class="input-box"><span class="unit" id="sym-princ">₹</span><input type="text" id="princDisplay" readonly tabindex="-1"></div>
+      </div>
+      <div class="input-row row-debt-derived">
+        <div class="row-label"><div class="rl-name">Equity Invested</div><div class="rl-sub">Purchase Price − Loan</div></div>
+        <div class="input-box"><span class="unit" id="sym-eq">₹</span><input type="text" id="equityDisplay" readonly tabindex="-1"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="results-row">
+    <div class="card">
+      <div class="card-header"><div class="card-dot"></div>IRR Comparison</div>
+      <div class="irr-compare">
+        <div class="irr-cell"><div class="irr-tag">Unlevered IRR</div><div class="irr-num" id="unlIRR">—</div><div class="irr-hint">All-equity · before tax</div></div>
+        <div class="irr-cell"><div class="irr-tag">Levered IRR</div><div class="irr-num" id="levIRR">—</div><div class="irr-hint">After debt service · before tax</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-dot"></div>Key Metrics</div>
+      <div class="metrics-grid">
+        <div class="metric"><div class="m-label">Purchase Price</div><div class="m-val" id="ppVal">—</div></div>
+        <div class="metric"><div class="m-label">Exit Value</div><div class="m-val pos" id="evVal">—</div></div>
+        <div class="metric"><div class="m-label">Capital Gain</div><div class="m-val pos" id="cgVal">—</div></div>
+        <div class="metric"><div class="m-label">Unlevered MOIC</div><div class="m-val acc" id="unlMOIC">—</div></div>
+        <div class="metric"><div class="m-label">Levered MOIC</div><div class="m-val acc" id="levMOIC">—</div></div>
+        <div class="metric"><div class="m-label">NOI Yield Y1</div><div class="m-val" id="yieldVal">—</div></div>
+        <div class="metric"><div class="m-label">Loan Amount</div><div class="m-val blue" id="loanVal">—</div></div>
+        <div class="metric"><div class="m-label">Equity Invested</div><div class="m-val blue" id="eqVal">—</div></div>
+        <div class="metric"><div class="m-label">Total Debt Service</div><div class="m-val blue" id="dsVal">—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="formula-box">
+    <div class="fb-title">How it's calculated</div>
+    <code>NOI Y1</code> = (Lease Rate − Opex) × Area × 12 &nbsp;·&nbsp;
+    <code>Purchase Price</code> = NOI Y1 ÷ Entry Cap &nbsp;·&nbsp;
+    <code>Exit Value</code> = Escalated NOI ÷ Exit Cap<br>
+    <code class="blue">Loan</code> = Purchase Price × LTV &nbsp;·&nbsp;
+    <code class="blue">Annual Principal</code> = Loan ÷ Repayment Period &nbsp;·&nbsp;
+    <code class="blue">Interest</code> = Opening Balance × Interest Rate<br>
+    <code class="blue">Levered CF</code> = NOI − Principal − Interest &nbsp;·&nbsp;
+    <code>IRR</code> = rate where NPV of all cashflows = 0 (XIRR)
+  </div>
+
+  <div class="card cf-card">
+    <div class="card-header"><div class="card-dot"></div>Year-by-Year Cashflows</div>
+    <div class="cf-scroll">
+      <table class="cf-table">
+        <thead>
+          <tr>
+            <th style="text-align:left">Metric</th>
+            <th>Acq.</th>
+            <tbody id="cfYearHeaders"></tbody>
+          </tr>
+        </thead>
+        <tbody id="cfBody"></tbody>
+      </table>
+    </div>
+    <div class="footnote" id="footnote"></div>
+  </div>
+</div>
+
+<script>
+let denom='abs', sym='₹';
+let lastRows=[], lastInputs={};
+
+function setDenom(d){
+  denom=d;
+  ['abs','L','Cr'].forEach(k=>document.getElementById('btn-'+k).classList.toggle('active',k===d));
+  recalc();
+}
+function fmt(n){
+  const abs=Math.abs(n),sign=n<0?'−':'';
+  if(denom==='Cr') return sign+sym+(abs/1e7).toFixed(2)+' Cr';
+  if(denom==='L')  return sign+sym+(abs/1e5).toFixed(2)+' L';
+  return sign+sym+Math.round(abs).toLocaleString('en-IN');
+}
+function xirr(cfs,dates){
+  let rate=0.1;
+  for(let i=0;i<300;i++){
+    let f=0,df=0;
+    for(let j=0;j<cfs.length;j++){
+      const t=(dates[j]-dates[0])/31557600000;
+      const v=Math.pow(1+rate,t);
+      f+=cfs[j]/v; df-=t*cfs[j]/(v*(1+rate));
+    }
+    if(Math.abs(df)<1e-12) break;
+    const nx=rate-f/df;
+    if(Math.abs(nx-rate)<1e-9){rate=nx;break;}
+    rate=nx;
+  }
+  return rate;
+}
+function g(id){return parseFloat(document.getElementById(id).value)||0;}
+
+function recalc(){
+  const sel=document.getElementById('currency');
+  sym=sel.options[sel.selectedIndex].dataset.symbol;
+  ['sym-lease','sym-opex','sym-noi','sym-loan','sym-princ','sym-eq'].forEach(id=>document.getElementById(id).textContent=sym);
+
+  const area=g('area'), leaseRate=g('leaseRate'), leaseGrowth=g('leaseGrowth')/100;
+  const opex=g('opex'), opexGrowth=g('opexGrowth')/100;
+  const hold=Math.max(1,Math.round(g('hold')));
+  const entryCap=(g('entryCap')||5)/100, exitCap=(g('exitCap')||5)/100;
+  const ltv=g('ltv')/100, intRate=g('interestRate')/100;
+  let repayYrs=Math.round(g('repayYears'))||hold;
+
+  const warnEl=document.getElementById('warnBadge');
+  if(repayYrs>hold){warnEl.classList.add('show');repayYrs=hold;}
+  else{warnEl.classList.remove('show');}
+
+  const grossY1=leaseRate*area*12, opexY1=opex*area*12, noiY1=grossY1-opexY1;
+  document.getElementById('noiDisplay').value=fmt(noiY1);
+
+  if(noiY1<=0||entryCap<=0||exitCap<=0){
+    ['unlIRR','levIRR','ppVal','evVal','cgVal','unlMOIC','levMOIC','yieldVal','loanVal','eqVal','dsVal']
+      .forEach(id=>document.getElementById(id).textContent='—');
+    ['loanDisplay','princDisplay','equityDisplay'].forEach(id=>document.getElementById(id).value='—');
+    document.getElementById('cfBody').innerHTML='';
+    return;
+  }
+
+  const purchasePrice=noiY1/entryCap;
+  const loanAmt=purchasePrice*ltv;
+  const equityIn=purchasePrice-loanAmt;
+  const annualPrinc=repayYrs>0?loanAmt/repayYrs:0;
+
+  document.getElementById('loanDisplay').value=fmt(loanAmt);
+  document.getElementById('princDisplay').value=fmt(annualPrinc);
+  document.getElementById('equityDisplay').value=fmt(equityIn);
+
+  const unlCFs=[-(purchasePrice)], levCFs=[-(equityIn)];
+  const dates=[new Date(2025,0,1)];
+  const rows=[];
+  let gross=grossY1, opexA=opexY1, openingDebt=loanAmt, totalDS=0;
+
+  for(let y=1;y<=hold;y++){
+    if(y>1){gross*=(1+leaseGrowth);opexA*=(1+opexGrowth);}
+    const noi=gross-opexA;
+    const principal=(y<=repayYrs)?annualPrinc:0;
+    const interest=openingDebt*intRate;
+    const debtSvc=principal+interest;
+    const closingDebt=openingDebt-principal;
+    totalDS+=debtSvc;
+    rows.push({y,gross,opexA,noi,exit:0,unlCF:noi,openingDebt,principal,interest,debtSvc,levCF:noi-debtSvc,closingDebt});
+    unlCFs.push(noi); levCFs.push(noi-debtSvc);
+    dates.push(new Date(2025+y,0,1));
+    openingDebt=closingDebt;
+  }
+
+  const exitGross=rows[hold-1].gross*(1+leaseGrowth);
+  const exitOpex=rows[hold-1].opexA*(1+opexGrowth);
+  const exitNOI=exitGross-exitOpex;
+  const exitValue=exitNOI/exitCap;
+  const capGain=exitValue-purchasePrice;
+  unlCFs[hold]+=exitValue; levCFs[hold]+=exitValue;
+  rows[hold-1].exit=exitValue;
+  rows[hold-1].unlCF=rows[hold-1].noi+exitValue;
+  rows[hold-1].levCF=rows[hold-1].noi+exitValue-rows[hold-1].debtSvc;
+
+  const unlIRR=xirr(unlCFs,dates)*100;
+  const levIRR=xirr(levCFs,dates)*100;
+  const unlMOIC=unlCFs.slice(1).reduce((a,b)=>a+b,0)/purchasePrice;
+  const levMOIC=equityIn>0?levCFs.slice(1).reduce((a,b)=>a+b,0)/equityIn:0;
+  const noiyld=(noiY1/purchasePrice)*100;
+
+  lastRows=[...rows];
+  lastInputs={area,leaseRate,leaseGrowth:g('leaseGrowth'),opex,opexGrowth:g('opexGrowth'),
+    hold,entryCap:g('entryCap'),exitCap:g('exitCap'),ltv:g('ltv'),intRate:g('interestRate'),
+    repayYrs,purchasePrice,loanAmt,equityIn,annualPrinc,noiY1,exitValue,capGain,
+    unlIRR,levIRR,unlMOIC,levMOIC,noiyld,totalDS,sym};
+
+  const setIRR=(id,v)=>{const el=document.getElementById(id);el.textContent=v.toFixed(1)+'%';el.className='irr-num '+(v>15?'pos':v>0?'':'neg');};
+  setIRR('unlIRR',unlIRR); setIRR('levIRR',levIRR);
+  document.getElementById('ppVal').textContent=fmt(purchasePrice);
+  document.getElementById('evVal').textContent=fmt(exitValue);
+  document.getElementById('cgVal').textContent=fmt(capGain);
+  document.getElementById('unlMOIC').textContent=unlMOIC.toFixed(2)+'x';
+  document.getElementById('levMOIC').textContent=levMOIC.toFixed(2)+'x';
+  document.getElementById('yieldVal').textContent=noiyld.toFixed(2)+'%';
+  document.getElementById('loanVal').textContent=fmt(loanAmt);
+  document.getElementById('eqVal').textContent=fmt(equityIn);
+  document.getElementById('dsVal').textContent=fmt(totalDS);
+
+  // Horizontal table — rows are metrics, columns are years
+  const metrics=[
+    {label:'Gross Income',     key:'gross',       isDebt:false},
+    {label:'Opex',             key:'opexA',       isDebt:false, neg:true},
+    {label:'NOI',              key:'noi',         isDebt:false, bold:true},
+    {label:'Exit Proceeds',    key:'exit',        isDebt:false},
+    {label:'Unlevered CF',     key:'unlCF',       isDebt:false, bold:true},
+    {label:'—',                key:null},
+    {label:'Opening Debt',     key:'openingDebt', isDebt:true},
+    {label:'Principal Repaid', key:'principal',   isDebt:true, neg:true},
+    {label:'Interest',         key:'interest',    isDebt:true, neg:true},
+    {label:'Total Debt Svc',   key:'debtSvc',     isDebt:true, neg:true},
+    {label:'Levered CF',       key:'levCF',       isDebt:false, bold:true},
+  ];
+
+  // Build year header row
+  let hdrHtml='';
+  hdrHtml+=`<th style="text-align:right;background:var(--bg)">Acq.</th>`;
+  rows.forEach(r=>hdrHtml+=`<th style="text-align:right;background:var(--bg)">Yr ${r.y}${r.y===hold?' ★':''}</th>`);
+  document.getElementById('cfYearHeaders').innerHTML='';
+  // inject into thead tr — rebuild cleanly
+  const thead=document.querySelector('.cf-table thead tr');
+  thead.innerHTML=`<th style="text-align:left;background:var(--bg);min-width:140px">Metric</th>`+hdrHtml;
+
+  let bodyHtml='';
+  metrics.forEach(m=>{
+    if(!m.key){
+      bodyHtml+=`<tr><td colspan="${hold+2}" style="padding:3px 0;border-bottom:1px solid var(--border);background:var(--bg);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding-left:12px">Debt Workings</td></tr>`;
+      return;
+    }
+    const style=m.bold?'font-weight:600;color:var(--text)':'';
+    const debtColor=m.isDebt?'color:#60a5fa':'';
+    bodyHtml+=`<tr>`;
+    bodyHtml+=`<td style="font-size:12px;${m.isDebt?'color:#60a5fa':''}${m.bold?';font-weight:600':''}">`;
+    bodyHtml+=m.label+`</td>`;
+
+    // Acquisition column
+    if(m.key==='openingDebt'){bodyHtml+=`<td style="${debtColor}">${fmt(loanAmt)}</td>`;}
+    else if(m.key==='unlCF'){bodyHtml+=`<td style="color:var(--neg);font-weight:600">(${fmt(purchasePrice)})</td>`;}
+    else if(m.key==='levCF'){bodyHtml+=`<td style="color:var(--neg);font-weight:600">(${fmt(equityIn)})</td>`;}
+    else{bodyHtml+=`<td style="color:var(--text3)">—</td>`;}
+
+    rows.forEach(r=>{
+      const val=r[m.key];
+      let disp='—';
+      if(typeof val==='number'){
+        if(val===0&&m.key==='exit') disp='—';
+        else if(m.neg) disp=`(${fmt(val)})`;
+        else disp=fmt(val);
+      }
+      bodyHtml+=`<td style="${debtColor}${style?';'+style:''}">${disp}</td>`;
+    });
+    bodyHtml+=`</tr>`;
+  });
+
+  document.getElementById('cfBody').innerHTML=bodyHtml;
+  document.getElementById('footnote').textContent=
+    `★ = exit year. Unlevered CF uses full purchase price as Year 0 outflow. Levered CF uses equity invested (${fmt(equityIn)}). `+
+    `Debt fully amortised over ${repayYrs} yr(s); no residual at exit. Exit NOI = Year ${hold} escalated one further step. Values in ${sym}.`;
+}
+
+/* ══════════════════════════════════════════════
+   EXCEL EXPORT — linked formulas, horizontal CFs
+══════════════════════════════════════════════ */
+function exportExcel(){
+  if(!lastInputs.purchasePrice) return;
+  const I=lastInputs;
+  const hold=I.hold;
+  const WB=XLSX.utils.book_new();
+
+  // Helper: cell address
+  const C=(r,c)=>XLSX.utils.encode_cell({r,c});
+
+  // ── Styling helpers ──
+  const COLORS={
+    headerDark:'1A1A1A', headerText:'FFFFFF',
+    sectionGreen:'1A5C38', sectionGreenText:'FFFFFF',
+    sectionBlue:'1E3A5F', sectionBlueText:'FFFFFF',
+    accentGreen:'E8F5E9', accentBlue:'E3F2FD',
+    derivedGreen:'C8E6C9', derivedBlue:'BBDEFB',
+    positive:'1B5E20', negative:'B71C1C',
+    exitHighlight:'FFF8E1', exitText:'E65100',
+    labelBg:'F5F5F5', white:'FFFFFF',
+    border:'BDBDBD', totalBg:'EEEEEE',
+    inputBg:'FAFAFA'
+  };
+
+  function style(opts={}){
+    const s={
+      font:{name:'Calibri',sz:opts.sz||10,bold:opts.bold||false,color:{rgb:opts.fontColor||'000000'},italic:opts.italic||false},
+      fill:{fgColor:{rgb:opts.bg||'FFFFFF'},patternType:'solid'},
+      alignment:{horizontal:opts.align||'left',vertical:'center',wrapText:opts.wrap||false},
+      border:{
+        top:{style:'thin',color:{rgb:COLORS.border}},
+        bottom:{style:'thin',color:{rgb:COLORS.border}},
+        left:{style:'thin',color:{rgb:COLORS.border}},
+        right:{style:'thin',color:{rgb:COLORS.border}},
+      }
+    };
+    if(opts.noBorder) s.border={};
+    if(opts.numFmt) s.numFmt=opts.numFmt;
+    return s;
+  }
+
+  // ══════════════════════════════════════════
+  // SHEET 1: INPUTS & SUMMARY
+  // ══════════════════════════════════════════
+  const ws1={};
+  const merges1=[];
+  let r=0;
+
+  function setCell(row,col,v,s){
+    const ref=C(row,col);
+    ws1[ref]={v,t:typeof v==='number'?'n':typeof v==='boolean'?'b':'s',s};
+    if(typeof v==='number'&&s&&s.numFmt) ws1[ref].z=s.numFmt;
+  }
+  function merge1(r1,c1,r2,c2){merges1.push({s:{r:r1,c:c1},e:{r:r2,c:c2}});}
+
+  // Title
+  setCell(r,0,'ValuePresent — Real Estate IRR Calculator',style({bold:true,sz:14,bg:COLORS.headerDark,fontColor:COLORS.headerText,noBorder:true}));
+  setCell(r,1,'',style({bg:COLORS.headerDark,noBorder:true}));
+  setCell(r,2,'',style({bg:COLORS.headerDark,noBorder:true}));
+  setCell(r,3,'',style({bg:COLORS.headerDark,noBorder:true}));
+  merge1(r,0,r,3); r++;
+
+  setCell(r,0,'Generated: '+new Date().toLocaleDateString('en-IN'),style({sz:9,italic:true,fontColor:'888888',noBorder:true}));
+  merge1(r,0,r,3); r++;r++;
+
+  // ── INPUTS section ──
+  function sectionHeader(row,label,color,textColor){
+    setCell(row,0,label,style({bold:true,sz:10,bg:color,fontColor:textColor}));
+    setCell(row,1,'',style({bg:color}));
+    setCell(row,2,'Value',style({bold:true,sz:10,bg:color,fontColor:textColor,align:'right'}));
+    setCell(row,3,'Notes',style({bold:true,sz:10,bg:color,fontColor:textColor}));
+    merge1(row,0,row,1);
+  }
+
+  function inputRow(row,section,label,valRef,valOverride,note,numFmt,isPct){
+    const labelStyle=style({bg:COLORS.labelBg,fontColor:'333333'});
+    const valStyle=style({bg:COLORS.inputBg,align:'right',bold:true,numFmt:numFmt||'#,##0'});
+    const noteStyle=style({bg:COLORS.white,fontColor:'888888',sz:9});
+    setCell(row,0,section||'',labelStyle);
+    setCell(row,1,label,labelStyle);
+    if(valRef){
+      ws1[C(row,2)]={f:valRef,t:'n',s:valStyle,z:numFmt||'#,##0'};
+    } else {
+      setCell(row,2,valOverride,isPct?style({bg:COLORS.inputBg,align:'right',bold:true,numFmt:'0.0%'}):valStyle);
+    }
+    setCell(row,3,note||'',noteStyle);
+  }
+
+  function derivedRow(row,section,label,formula,note,numFmt,isGreen){
+    const bg=isGreen?COLORS.derivedGreen:COLORS.derivedBlue;
+    const fc=isGreen?COLORS.positive:COLORS.sectionBlue;
+    setCell(row,0,section||'',style({bg,fontColor:'444444'}));
+    setCell(row,1,label,style({bg,fontColor:'444444'}));
+    ws1[C(row,2)]={f:formula,t:'n',s:style({bg,align:'right',bold:true,fontColor:fc,numFmt:numFmt||'#,##0'}),z:numFmt||'#,##0'};
+    setCell(row,3,note||'',style({bg,fontColor:'666666',sz:9}));
+  }
+
+  // Named input rows — store their row indices for formula references
+  const ROW={};
+
+  sectionHeader(r,'INPUTS — Property & Lease','2E7D32','FFFFFF'); r++;
+  ROW.area=r;      inputRow(r,'Property','Area (sqm)',null,I.area,'Leasable area','#,##0'); r++;
+  ROW.lease=r;     inputRow(r,'Lease','Lease Rate (per sqm/mo)',null,I.leaseRate,'Monthly income per sqm','#,##0'); r++;
+  ROW.leaseG=r;    inputRow(r,'','Lease Growth (%)',null,I.leaseGrowth/100,'Annual rent escalation','0.0%',true); r++;
+
+  r++;
+  sectionHeader(r,'INPUTS — Operating Expenses','2E7D32','FFFFFF'); r++;
+  ROW.opex=r;      inputRow(r,'Opex','Opex (per sqm/mo)',null,I.opex,'Monthly opex per sqm','#,##0'); r++;
+  ROW.opexG=r;     inputRow(r,'','Opex Growth (%)',null,I.opexGrowth/100,'Annual opex escalation','0.0%',true); r++;
+
+  r++;
+  sectionHeader(r,'INPUTS — Hold & Cap Rates','2E7D32','FFFFFF'); r++;
+  ROW.hold=r;      inputRow(r,'Hold','Hold Period (yrs)',null,I.hold,'Investment horizon','#,##0'); r++;
+  ROW.entryCap=r;  inputRow(r,'Cap Rates','Entry Cap Rate',null,I.entryCap/100,'Purchase yield','0.0%',true); r++;
+  ROW.exitCap=r;   inputRow(r,'','Exit Cap Rate',null,I.exitCap/100,'Sale yield','0.0%',true); r++;
+
+  r++;
+  sectionHeader(r,'INPUTS — Debt / Financing','1565C0','FFFFFF'); r++;
+  ROW.ltv=r;       inputRow(r,'Debt','LTV (%)',null,I.ltv/100,'Loan-to-value','0.0%',true); r++;
+  ROW.intRate=r;   inputRow(r,'','Interest Rate (%)',null,I.intRate/100,'Annual cost of debt','0.0%',true); r++;
+  ROW.repay=r;     inputRow(r,'','Repayment Period (yrs)',null,I.repayYrs,'Equal principal amortisation','#,##0'); r++;
+
+  // References to input cells (col C = col index 2)
+  const RC=row=>`'Inputs & Summary'!C${row+1}`; // 1-based for formulas
+  r++;
+  sectionHeader(r,'DERIVED — Property Economics','33691E','FFFFFF'); r++;
+  ROW.grossY1=r;
+  derivedRow(r,'Income','Gross Income — Year 1',`${RC(ROW.lease)}*${RC(ROW.area)}*12`,'(Lease Rate × Area × 12)','#,##0',true); r++;
+  ROW.opexY1=r;
+  derivedRow(r,'','Opex Total — Year 1',`${RC(ROW.opex)}*${RC(ROW.area)}*12`,'(Opex × Area × 12)','#,##0',true); r++;
+  ROW.noiY1=r;
+  derivedRow(r,'','NOI — Year 1',`${RC(ROW.grossY1)}-${RC(ROW.opexY1)}`,'Gross Income − Opex','#,##0',true); r++;
+  ROW.pp=r;
+  derivedRow(r,'Valuation','Purchase Price',`${RC(ROW.noiY1)}/${RC(ROW.entryCap)}`,'NOI Y1 ÷ Entry Cap Rate','#,##0',true); r++;
+
+  r++;
+  sectionHeader(r,'DERIVED — Debt Structure','0D47A1','FFFFFF'); r++;
+  ROW.loan=r;
+  derivedRow(r,'Debt','Loan Amount',`${RC(ROW.pp)}*${RC(ROW.ltv)}`,'Purchase Price × LTV','#,##0',false); r++;
+  ROW.equity=r;
+  derivedRow(r,'','Equity Invested',`${RC(ROW.pp)}-${RC(ROW.loan)}`,'Purchase Price − Loan','#,##0',false); r++;
+  ROW.annPrinc=r;
+  derivedRow(r,'','Annual Principal',`${RC(ROW.loan)}/${RC(ROW.repay)}`,'Loan ÷ Repayment Period','#,##0',false); r++;
+
+  r++;
+  sectionHeader(r,'RESULTS SUMMARY','1A237E','FFFFFF'); r++;
+
+  // Results header
+  ['','','Unlevered','Levered'].forEach((h,i)=>{
+    setCell(r,i,h,style({bold:true,bg:COLORS.totalBg,align:i>=2?'right':'left'}));
+  });
+  r++;
+  // IRR
+  setCell(r,0,'Returns',style({bg:COLORS.accentGreen}));
+  setCell(r,1,'IRR',style({bg:COLORS.accentGreen,bold:true}));
+  setCell(r,2,I.unlIRR/100,style({bg:COLORS.accentGreen,align:'right',bold:true,fontColor:COLORS.positive,numFmt:'0.0%',sz:12}));
+  ws1[C(r,2)].z='0.0%';
+  setCell(r,3,I.levIRR/100,style({bg:COLORS.accentBlue,align:'right',bold:true,fontColor:'0D47A1',numFmt:'0.0%',sz:12}));
+  ws1[C(r,3)].z='0.0%';
+  r++;
+  setCell(r,0,'',style({bg:COLORS.accentGreen}));
+  setCell(r,1,'MOIC',style({bg:COLORS.accentGreen,bold:true}));
+  setCell(r,2,I.unlMOIC,style({bg:COLORS.accentGreen,align:'right',bold:true,fontColor:COLORS.positive,numFmt:'0.00"x"'}));
+  ws1[C(r,2)].z='0.00"x"';
+  setCell(r,3,I.levMOIC,style({bg:COLORS.accentBlue,align:'right',bold:true,fontColor:'0D47A1',numFmt:'0.00"x"'}));
+  ws1[C(r,3)].z='0.00"x"';
+  r++;
+  setCell(r,0,'',style({}));
+  setCell(r,1,'NOI Yield (Y1)',style({}));
+  ws1[C(r,2)]={f:`${RC(ROW.noiY1)}/${RC(ROW.pp)}`,t:'n',s:style({align:'right',numFmt:'0.0%'}),z:'0.0%'};
+  setCell(r,3,'—',style({align:'right'})); r++;
+  setCell(r,0,'',style({}));
+  setCell(r,1,'Capital Gain',style({}));
+  ws1[C(r,2)]=ws1[C(r,2)]||{};
+  setCell(r,2,I.capGain,style({align:'right',numFmt:'#,##0',fontColor:COLORS.positive}));
+  ws1[C(r,2)].z='#,##0';
+  setCell(r,3,'—',style({align:'right'})); r++;
+  setCell(r,0,'Debt',style({}));
+  setCell(r,1,'Total Debt Service',style({}));
+  setCell(r,2,'—',style({align:'right'}));
+  setCell(r,3,I.totalDS,style({align:'right',numFmt:'#,##0',fontColor:'0D47A1'}));
+  ws1[C(r,3)].z='#,##0'; r++;
+
+  ws1['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:r,c:3}});
+  ws1['!cols']=[{wch:16},{wch:28},{wch:20},{wch:36}];
+  ws1['!rows']=[];
+  ws1['!merges']=merges1;
+  XLSX.utils.book_append_sheet(WB,ws1,'Inputs & Summary');
+
+  // ══════════════════════════════════════════
+  // SHEET 2: CASHFLOW MODEL (horizontal)
+  // ══════════════════════════════════════════
+  const ws2={};
+  const merges2=[];
+  const rows=lastRows;
+
+  function sc(row,col,v,s){
+    const ref=C(row,col);
+    ws2[ref]={v,t:typeof v==='number'?'n':'s',s};
+    if(typeof v==='number'&&s&&s.numFmt) ws2[ref].z=s.numFmt;
+  }
+  function sf(row,col,formula,s){
+    const ref=C(row,col);
+    ws2[ref]={f:formula,t:'n',s};
+    if(s&&s.numFmt) ws2[ref].z=s.numFmt;
+  }
+  function merge2(r1,c1,r2,c2){merges2.push({s:{r:r1,c:c1},e:{r:r2,c:c2}});}
+
+  // INP sheet references
+  const IS=(row)=>`'Inputs & Summary'!C${row+1}`;
+
+  let cr=0;
+  // Title
+  sc(cr,0,'ValuePresent — Cashflow Model (Horizontal)',style({bold:true,sz:13,bg:COLORS.headerDark,fontColor:COLORS.headerText,noBorder:true}));
+  for(let c=1;c<=hold+1;c++) sc(cr,c,'',style({bg:COLORS.headerDark,noBorder:true}));
+  merge2(cr,0,cr,hold+1); cr++;
+
+  // ── Column headers ──
+  const colHdrStyle=(isExit)=>style({bold:true,sz:10,bg:isExit?COLORS.exitHighlight:COLORS.totalBg,fontColor:isExit?COLORS.exitText:'333333',align:'right'});
+  sc(cr,0,'',style({bold:true,bg:COLORS.totalBg}));
+  sc(cr,1,'Acquisition',style({bold:true,bg:COLORS.negative==='B71C1C'?'FFEBEE':'FFEBEE',fontColor:'B71C1C',align:'right'}));
+  rows.forEach((row,i)=>{
+    const isExit=i===hold-1;
+    sc(cr,i+2,`Year ${row.y}${isExit?' (Exit)':''}`,colHdrStyle(isExit));
+  });
+  cr++;
+
+  // ── Section: Unlevered ──
+  function sectionRow2(label,color,textColor){
+    sc(cr,0,label,style({bold:true,sz:10,bg:color,fontColor:textColor}));
+    for(let c=1;c<=hold+1;c++) sc(cr,c,'',style({bg:color}));
+    merge2(cr,0,cr,hold+1); cr++;
+  }
+
+  function dataRow2(rowLabel,acqVal,yearVals,numFmt,boldRow,negStyle,isDebt){
+    const bg=isDebt?COLORS.accentBlue:COLORS.white;
+    const fc=isDebt?'0D47A1':'333333';
+    const labelS=style({bold:boldRow,bg:isDebt?COLORS.accentBlue:COLORS.labelBg,fontColor:isDebt?'0D47A1':'444444'});
+    const numS=(extra)=>style({bold:boldRow,align:'right',numFmt:numFmt||'#,##0',fontColor:extra||fc,bg:bg});
+
+    sc(cr,0,rowLabel,labelS);
+
+    // Acquisition col
+    if(acqVal===null) sc(cr,1,'—',style({align:'right',bg,fontColor:'999999'}));
+    else if(typeof acqVal==='number') {
+      ws2[C(cr,1)]={v:acqVal,t:'n',s:numS(acqVal<0?COLORS.negative:null),z:numFmt||'#,##0'};
+    } else sc(cr,1,acqVal,style({align:'right',bg,fontColor:'999999'}));
+
+    yearVals.forEach((val,i)=>{
+      const isExit=i===hold-1;
+      const cellBg=isExit?(isDebt?'FFF8E1':'FFF8E1'):bg;
+      const s=style({bold:boldRow,align:'right',numFmt:numFmt||'#,##0',fontColor:isDebt?'0D47A1':val<0?COLORS.negative:boldRow?COLORS.positive:'333333',bg:cellBg});
+      if(typeof val==='number') ws2[C(cr,i+2)]={v:val,t:'n',s,z:numFmt||'#,##0'};
+      else sc(cr,i+2,val||'—',style({align:'right',bg:cellBg,fontColor:'999999'}));
+    });
+    cr++;
+  }
+
+  // Build year value arrays
+  const grossArr=rows.map(r=>r.gross);
+  const opexArr=rows.map(r=>-r.opexA);
+  const noiArr=rows.map(r=>r.noi);
+  const exitArr=rows.map(r=>r.exit||null);
+  const unlArr=rows.map(r=>r.unlCF);
+  const openArr=rows.map(r=>r.openingDebt);
+  const princArr=rows.map(r=>-r.principal);
+  const intArr=rows.map(r=>-r.interest);
+  const dsArr=rows.map(r=>-r.debtSvc);
+  const levArr=rows.map(r=>r.levCF);
+
+  sectionRow2('UNLEVERED CASHFLOWS','2E7D32','FFFFFF');
+  dataRow2('Gross Income',null,grossArr,'#,##0',false,false,false);
+  dataRow2('Opex'        ,null,opexArr, '#,##0',false,true ,false);
+  dataRow2('NOI'         ,null,noiArr,  '#,##0',true ,false,false);
+  dataRow2('Exit Proceeds',null,exitArr,'#,##0',false,false,false);
+  dataRow2('Unlevered CF',-I.purchasePrice,unlArr,'#,##0',true,false,false);
+
+  cr++;
+  sectionRow2('DEBT WORKINGS','1565C0','FFFFFF');
+  dataRow2('Opening Debt Balance',I.loanAmt,openArr,'#,##0',false,false,true);
+  dataRow2('Principal Repaid'    ,null      ,princArr,'#,##0',false,true,true);
+  dataRow2('Interest'            ,null      ,intArr,  '#,##0',false,true,true);
+  dataRow2('Total Debt Service'  ,null      ,dsArr,   '#,##0',true ,true,true);
+
+  cr++;
+  sectionRow2('LEVERED CASHFLOWS','1A237E','FFFFFF');
+  dataRow2('Levered CF',-I.equityIn,levArr,'#,##0',true,false,false);
+
+  cr++;
+  // IRR summary row
+  sectionRow2('RETURNS SUMMARY','1A1A1A','FFFFFF');
+  sc(cr,0,'Unlevered IRR',style({bold:true,bg:COLORS.accentGreen,fontColor:COLORS.positive}));
+  ws2[C(cr,1)]={v:I.unlIRR/100,t:'n',s:style({bold:true,align:'right',fontColor:COLORS.positive,bg:COLORS.accentGreen,numFmt:'0.0%'}),z:'0.0%'};
+  for(let c=2;c<=hold+1;c++) sc(cr,c,'',style({bg:COLORS.accentGreen}));
+  cr++;
+  sc(cr,0,'Levered IRR',style({bold:true,bg:COLORS.accentBlue,fontColor:'0D47A1'}));
+  ws2[C(cr,1)]={v:I.levIRR/100,t:'n',s:style({bold:true,align:'right',fontColor:'0D47A1',bg:COLORS.accentBlue,numFmt:'0.0%'}),z:'0.0%'};
+  for(let c=2;c<=hold+1;c++) sc(cr,c,'',style({bg:COLORS.accentBlue}));
+  cr++;
+  sc(cr,0,'Unlevered MOIC',style({bold:true,bg:COLORS.accentGreen,fontColor:COLORS.positive}));
+  ws2[C(cr,1)]={v:I.unlMOIC,t:'n',s:style({bold:true,align:'right',fontColor:COLORS.positive,bg:COLORS.accentGreen,numFmt:'0.00"x"'}),z:'0.00"x"'};
+  for(let c=2;c<=hold+1;c++) sc(cr,c,'',style({bg:COLORS.accentGreen}));
+  cr++;
+  sc(cr,0,'Levered MOIC',style({bold:true,bg:COLORS.accentBlue,fontColor:'0D47A1'}));
+  ws2[C(cr,1)]={v:I.levMOIC,t:'n',s:style({bold:true,align:'right',fontColor:'0D47A1',bg:COLORS.accentBlue,numFmt:'0.00"x"'}),z:'0.00"x"'};
+  for(let c=2;c<=hold+1;c++) sc(cr,c,'',style({bg:COLORS.accentBlue}));
+  cr++;
+
+  // Column widths: label col wide, year cols equal
+  const cfCols=[{wch:24},{wch:16}];
+  rows.forEach(()=>cfCols.push({wch:15}));
+  ws2['!cols']=cfCols;
+  ws2['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:cr,c:hold+1}});
+  ws2['!merges']=merges2;
+  XLSX.utils.book_append_sheet(WB,ws2,'Cashflow Model');
+
+  // ══════════════════════════════════════════
+  // SHEET 3: FORMULA REFERENCE
+  // ══════════════════════════════════════════
+  const fRef=[
+    ['ValuePresent — Formula Reference'],[''],
+    ['Step','Formula','Notes'],
+    ['1. Gross Income (Y1)','= Lease Rate × Area × 12','Monthly rate annualised over leasable area'],
+    ['2. Opex Total (Y1)','= Opex Rate × Area × 12','Monthly opex annualised'],
+    ['3. NOI (Y1)','= Gross Income − Opex Total','Net Operating Income'],
+    ['4. Purchase Price','= NOI Y1 ÷ Entry Cap Rate','Direct capitalisation'],
+    ['5. Loan Amount','= Purchase Price × LTV','Debt raised at acquisition'],
+    ['6. Equity Invested','= Purchase Price − Loan Amount','Equity outflow at Year 0'],
+    ['7. Annual Principal','= Loan Amount ÷ Repayment Period','Equal principal amortisation each year'],
+    ['8. Interest (Year N)','= Opening Debt Balance × Interest Rate','Reduces as principal is repaid'],
+    ['9. Gross Income (Yr N)','= Prior Year Gross × (1 + Lease Growth)','Compounding annual escalation'],
+    ['10. Opex (Yr N)','= Prior Year Opex × (1 + Opex Growth)','Independent escalation from lease'],
+    ['11. Exit NOI','= Yr N Gross × (1+LeaseG) − Yr N Opex × (1+OpexG)','One further escalation beyond final hold year'],
+    ['12. Exit Value','= Exit NOI ÷ Exit Cap Rate','Direct capitalisation at exit'],
+    ['13. Unlevered CF (exit yr)','= NOI + Exit Value','Combined income + capital proceeds'],
+    ['14. Levered CF','= NOI − Principal − Interest','After full annual debt service'],
+    ['15. Levered CF (exit yr)','= NOI + Exit Value − Debt Service','No residual debt (fully amortised)'],
+    ['16. Unlevered IRR','= XIRR(−Purchase Price, CF Y1…YN)','Full equity as Year 0 outflow'],
+    ['17. Levered IRR','= XIRR(−Equity Invested, Levered CF Y1…YN)','Equity only as Year 0 outflow'],
+    ['18. MOIC (Unlevered)','= Σ Unlevered Inflows ÷ Purchase Price','Total cash-on-cash multiple'],
+    ['19. MOIC (Levered)','= Σ Levered Inflows ÷ Equity Invested','Equity cash-on-cash multiple'],
+  ];
+  const ws3=XLSX.utils.aoa_to_sheet(fRef);
+  ws3['!cols']=[{wch:28},{wch:50},{wch:46}];
+  XLSX.utils.book_append_sheet(WB,ws3,'Formula Reference');
+
+  XLSX.writeFile(WB,'ValuePresent_IRR_'+new Date().toISOString().slice(0,10)+'.xlsx');
+}
+
+recalc();
+</script>
+</body>
+</html>
